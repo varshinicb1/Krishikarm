@@ -1,0 +1,27 @@
+# Kisan-Eye V6 Backend — Production Dependencies
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.32.0,<1.0
+python-multipart>=0.0.18
+pydantic>=2.10.0,<3.0
+
+# Face Recognition
+insightface>=0.7.3
+onnxruntime>=1.19.0
+opencv-python-headless>=4.10.0
+numpy>=1.26.4,<2.0
+
+# Voice
+openai-whisper>=20240930
+
+# LLM
+ollama>=0.4.0
+httpx>=0.28.0
+
+# Data
+aiohttp>=3.11.0
+aiosqlite>=0.20.0
+
+# Utilities
+Pillow>=11.0.0
+scikit-learn>=1.6.0
+python-dotenv>=1.0.0

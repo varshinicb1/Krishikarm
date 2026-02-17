@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Krishikarm — कृषिकर्म | AI-Powered Farming Intelligence</title>
+  <meta name="description"
+    content="Krishikarm: Patent-pending AI farming platform with satellite intelligence, real-time crop advisory, voice-powered assistance in 11 Indian languages, and automated government scheme enrollment." />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icon-512.svg" />
+  <link rel="apple-touch-icon" href="/icon-512.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0"></script>
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- HEADER -->
+    <header id="app-header">
+      <div class="logo">
+        <span class="logo-icon">🌾</span>
+        <div>
+          <h1>Krishi<span class="accent">karm</span></h1>
+          <p class="tagline" id="tagline">कृषिकर्म — Your Personal Farming Intelligence</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="live-badge" id="ml-status">
+          <span class="live-dot"></span> AI Live
+        </span>
+        <select class="lang-picker" id="lang-picker" aria-label="Language">
+          <option value="en">English</option>
+          <option value="hi">हिंदी</option>
+          <option value="kn">ಕನ್ನಡ</option>
+          <option value="te">తెలుగు</option>
+          <option value="ta">தமிழ்</option>
+          <option value="mr">मराठी</option>
+          <option value="bn">বাংলা</option>
+          <option value="gu">ગુજરાતી</option>
+          <option value="pa">ਪੰਜਾਬੀ</option>
+          <option value="or">ଓଡ଼ିଆ</option>
+        </select>
+        <button class="btn-icon" id="toggle-lowdata" title="Low Data Mode" aria-label="Toggle low data mode">📶</button>
+        <button class="btn-icon" id="toggle-contrast" title="High Contrast"
+          aria-label="Toggle high contrast">🔲</button>
+        <button class="btn-icon" id="toggle-fontsize" title="Large Text" aria-label="Toggle large text">A+</button>
+        <button class="btn-mic" id="voice-btn" title="Voice Assistant">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z" />
+            <path
+              d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+          </svg>
+          <div class="mic-pulse"></div>
+        </button>
+      </div>
+    </header>
+
+    <!-- VOICE OVERLAY -->
+    <div id="voice-overlay" class="voice-overlay hidden">
+      <div class="voice-content">
+        <div class="voice-wave">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+        <p class="voice-text" id="voice-text">Listening...</p>
+        <button class="btn-glass" id="voice-close" style="margin-top:20px">Close</button>
+      </div>
+    </div>
+
+    <!-- LOCATION + SATELLITE SECTION -->
+    <section id="location-section" class="section-card">
+      <div class="location-bar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" opacity="0.5">
+            <path
+              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <input type="text" id="search-input" placeholder="Search village, district, or city..." />
+        </div>
+        <select id="crop-select" class="crop-select" aria-label="Select your crop">
+          <option value="general">🌾 Select Your Crop</option>
+          <option value="rice">🌾 Rice / धान</option>
+          <option value="wheat">🌾 Wheat / गेहूं</option>
+          <option value="cotton">🏵️ Cotton / कपास</option>
+          <option value="sugarcane">🎋 Sugarcane / गन्ना</option>
+          <option value="soybean">🫘 Soybean / सोयाबीन</option>
+          <option value="maize">🌽 Maize / मक्का</option>
+          <option value="groundnut">🥜 Groundnut / मूंगफली</option>
+          <option value="pulses">🫘 Pulses / दालें</option>
+          <option value="vegetables">🥬 Vegetables / सब्जियां</option>
+          <option value="jowar">🌾 Jowar / ज्वार</option>
+          <option value="bajra">🌾 Bajra / बाजरा</option>
+          <option value="ragi">🌾 Ragi / रागी</option>
+          <option value="mustard">🌻 Mustard / सरसों</option>
+          <option value="sunflower">🌻 Sunflower / सूरजमुखी</option>
+          <option value="jute">🪴 Jute / जूट</option>
+          <option value="tea">🍵 Tea / चाय</option>
+          <option value="coffee">☕ Coffee / कॉफी</option>
+          <option value="coconut">🥥 Coconut / नारियल</option>
+          <option value="banana">🍌 Banana / केला</option>
+          <option value="mango">🥭 Mango / आम</option>
+          <option value="onion">🧅 Onion / प्याज</option>
+          <option value="potato">🥔 Potato / आलू</option>
+          <option value="tomato">🍅 Tomato / टमाटर</option>
+          <option value="chilli">🌶️ Chilli / मिर्च</option>
+          <option value="turmeric">🟡 Turmeric / हल्दी</option>
+          <option value="pepper">🫚 Pepper / कालीमिर्च</option>
+        </select>
+        <div class="coord-display">
+          <span id="coord-text">Click on the map to select your farm</span>
+        </div>
+      </div>
+
+      <!-- SATELLITE LAYER PICKER -->
+      <div class="sat-toolbar">
+        <div class="sat-layers">
+          <button class="sat-chip active" data-layer="base" title="Dark Map">🗺️ Base</button>
+          <button class="sat-chip" data-layer="modis-truecolor" title="MODIS True Color (NASA)">🛰️ MODIS</button>
+          <button class="sat-chip" data-layer="modis-ndvi" title="MODIS NDVI 8-Day">🌿 NDVI</button>
+          <button class="sat-chip" data-layer="modis-temp" title="Land Surface Temperature">🌡️ Temp</button>
+          <button class="sat-chip" data-layer="viirs" title="VIIRS True Color (Latest)">📡 VIIRS</button>
+          <button class="sat-chip" data-layer="bhuvan" title="ISRO Bhuvan AWiFS">🇮🇳 Bhuvan</button>
+        </div>
+        <div class="date-slider-container">
+          <button class="btn-icon" id="date-prev" title="Previous day">◀</button>
+          <input type="range" id="date-slider" class="date-slider" min="0" max="29" value="29" />
+          <button class="btn-icon" id="date-next" title="Next day">▶</button>
+          <span class="date-label" id="date-label">Today</span>
+          <button class="btn-icon" id="date-play" title="Play animation">▶️</button>
+        </div>
+      </div>
+      <div id="map" class="map-container"></div>
+      <p class="sat-attribution" id="sat-attribution">Krishikarm | Satellite: NASA GIBS, ISRO Bhuvan | Weather:
+        Open-Meteo, NASA POWER | AI: KisanNet v3 + Sarvam</p>
+    </section>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen" class="loading-screen hidden">
+      <div class="satellite-loader">
+        <div class="orbit-ring"></div><span class="satellite-dot">🛰️</span>
+      </div>
+      <p id="loading-text">Fetching satellite data...</p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <main id="dashboard" class="dashboard hidden">
+
+      <!-- AI/ML PREDICTIONS ROW -->
+      <section class="ml-row" id="ml-section">
+        <h2 class="section-heading">🧠 AI/ML Predictions <span class="ml-powered">KisanNet v3 · 96.8% Accuracy</span>
+        </h2>
+        <div class="ml-cards">
+          <div class="ml-card yield-card">
+            <div class="ml-icon">📊</div>
+            <h4 id="yield-title">Crop Yield Prediction</h4>
+            <div class="ml-value" id="yield-value">--</div>
+            <p class="ml-unit" id="yield-unit">tons/hectare</p>
+            <div class="ml-bar-track">
+              <div class="ml-bar-fill yield-fill" id="yield-bar"></div>
+            </div>
+            <p class="ml-confidence" id="yield-confidence">Model confidence: --</p>
+          </div>
+          <div class="ml-card pest-card">
+            <div class="ml-icon">🐛</div>
+            <h4 id="pest-title">Pest/Disease Risk</h4>
+            <div class="ml-value" id="pest-value">--</div>
+            <p class="ml-unit" id="pest-label">Analyzing...</p>
+            <div class="ml-bar-track">
+              <div class="ml-bar-fill pest-fill" id="pest-bar"></div>
+            </div>
+            <p class="ml-confidence" id="pest-confidence">Model confidence: --</p>
+          </div>
+          <div class="ml-card drought-card">
+            <div class="ml-icon">🏜️</div>
+            <h4 id="drought-title">Drought Early Warning</h4>
+            <div class="ml-value" id="drought-value">--%</div>
+            <p class="ml-unit" id="drought-label">probability</p>
+            <div class="ml-bar-track">
+              <div class="ml-bar-fill drought-fill" id="drought-bar"></div>
+            </div>
+            <p class="ml-confidence" id="drought-confidence">Model confidence: --</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- METRICS ROW -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-header"><span class="metric-icon">🌿</span>
+            <h3 id="ndvi-title">Crop Health (NDVI)</h3>
+          </div>
+          <div class="ndvi-gauge-container">
+            <canvas id="ndvi-gauge" width="180" height="100"></canvas>
+            <span class="ndvi-value" id="ndvi-value">--</span>
+          </div>
+          <p class="metric-label" id="ndvi-label">Select location</p>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header"><span class="metric-icon">💧</span>
+            <h3 id="soil-title">Soil Moisture</h3>
+          </div>
+          <div class="soil-bars">
+            <div class="soil-layer"><span class="depth">0–7 cm</span>
+              <div class="bar-track">
+                <div class="bar-fill" id="soil-0"></div>
+              </div><span class="pct" id="soil-0-pct">--%</span>
+            </div>
+            <div class="soil-layer"><span class="depth">7–28 cm</span>
+              <div class="bar-track">
+                <div class="bar-fill" id="soil-1"></div>
+              </div><span class="pct" id="soil-1-pct">--%</span>
+            </div>
+            <div class="soil-layer"><span class="depth">28–100 cm</span>
+              <div class="bar-track">
+                <div class="bar-fill" id="soil-2"></div>
+              </div><span class="pct" id="soil-2-pct">--%</span>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header"><span class="metric-icon">🌡️</span>
+            <h3 id="temp-title">Temperature</h3>
+          </div>
+          <div class="temp-display">
+            <span class="temp-big" id="temp-now">--°</span>
+            <div class="temp-range">
+              <span class="temp-hi" id="temp-hi">↑ --°</span>
+              <span class="temp-lo" id="temp-lo">↓ --°</span>
+            </div>
+          </div>
+          <p class="metric-label" id="weather-desc">--</p>
+        </div>
+      </div>
+
+      <!-- FORECAST -->
+      <section class="panel-card" id="forecast-panel">
+        <h3 class="panel-title" id="forecast-title">☁️ 7-Day Forecast</h3>
+        <div class="forecast-row" id="forecast-row"></div>
+      </section>
+
+      <!-- CHARTS -->
+      <div class="charts-row">
+        <section class="panel-card chart-panel">
+          <h3 class="panel-title" id="rain-title">🌧️ Rainfall (Last 30 Days)</h3>
+          <canvas id="rain-chart" height="200"></canvas>
+        </section>
+        <section class="panel-card chart-panel">
+          <h3 class="panel-title" id="temp-chart-title">📈 Temperature Trend</h3>
+          <canvas id="temp-chart" height="200"></canvas>
+        </section>
+      </div>
+
+      <!-- RAW SATELLITE DATA TABLE -->
+      <section class="panel-card" id="raw-data-panel">
+        <h3 class="panel-title">📡 Raw Satellite Data (NASA POWER)</h3>
+        <div class="raw-table-wrapper">
+          <table class="raw-table" id="raw-data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Temp (°C)</th>
+                <th>Max (°C)</th>
+                <th>Min (°C)</th>
+                <th>Rain (mm)</th>
+                <th>Solar (MJ/m²)</th>
+                <th>Humidity (%)</th>
+              </tr>
+            </thead>
+            <tbody id="raw-data-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ADVISORY -->
+      <section class="panel-card advisory-panel" id="advisory-panel">
+        <div class="advisory-header">
+          <h3 class="panel-title" id="advisory-title">🧠 Smart Advisory</h3>
+          <div class="advisory-actions">
+            <button id="speak-advisory" class="btn-glass btn-speak" title="Read aloud">
+              🔊 <span id="speak-label">Read Aloud</span>
+            </button>
+            <button id="download-report" class="btn-glass btn-report" title="Download Report">
+              📄 <span id="report-label">Download Report</span>
+            </button>
+            <button id="whatsapp-share" class="btn-glass btn-whatsapp" title="Share on WhatsApp">
+              💬 <span id="whatsapp-label">WhatsApp</span>
+            </button>
+          </div>
+        </div>
+        <div id="advisory-content" class="advisory-content">
+          <p class="advisory-placeholder">Select your farm location on the map above to receive personalized
+            satellite-based advice.</p>
+        </div>
+      </section>
+
+      <!-- CROP CALENDAR -->
+      <section class="panel-card" id="crop-calendar-panel">
+        <h3 class="panel-title" id="crop-calendar-title">📅 Crop Calendar</h3>
+        <div id="crop-calendar" class="crop-calendar">
+          <div class="calendar-row">
+            <div class="cal-month" data-m="0">Jan</div>
+            <div class="cal-month" data-m="1">Feb</div>
+            <div class="cal-month" data-m="2">Mar</div>
+            <div class="cal-month" data-m="3">Apr</div>
+            <div class="cal-month" data-m="4">May</div>
+            <div class="cal-month" data-m="5">Jun</div>
+            <div class="cal-month" data-m="6">Jul</div>
+            <div class="cal-month" data-m="7">Aug</div>
+            <div class="cal-month" data-m="8">Sep</div>
+            <div class="cal-month" data-m="9">Oct</div>
+            <div class="cal-month" data-m="10">Nov</div>
+            <div class="cal-month" data-m="11">Dec</div>
+          </div>
+          <div id="calendar-bar" class="calendar-bar"></div>
+          <p id="calendar-info" class="calendar-info">Select a crop above to see its growth timeline</p>
+        </div>
+      </section>
+
+      <!-- GOVERNMENT SCHEMES -->
+      <section class="panel-card" id="schemes-panel">
+        <h3 class="panel-title" id="schemes-title">🏛️ Government Schemes for Farmers</h3>
+        <div id="schemes-content" class="schemes-grid"></div>
+      </section>
+
+      <!-- SOIL HEALTH ADVISOR -->
+      <section class="panel-card" id="soil-panel">
+        <h3 class="panel-title" id="soil-health-title">🪨 Soil Health Advisor</h3>
+        <div class="soil-grid">
+          <div class="soil-card">
+            <span class="soil-icon">🌱</span>
+            <div>
+              <h4 id="soil-type-label">Soil Type</h4>
+              <p id="soil-type-value" class="soil-value">--</p>
+            </div>
+          </div>
+          <div class="soil-card">
+            <span class="soil-icon">🧪</span>
+            <div>
+              <h4 id="npk-label">NPK Recommendation</h4>
+              <p id="npk-value" class="soil-value">--</p>
+            </div>
+          </div>
+          <div class="soil-card">
+            <span class="soil-icon">🌿</span>
+            <div>
+              <h4 id="organic-label">Organic Alternative</h4>
+              <p id="organic-value" class="soil-value">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WATER & IRRIGATION -->
+      <section class="panel-card" id="water-panel">
+        <h3 class="panel-title" id="water-title">💧 Water & Irrigation Calculator</h3>
+        <div class="water-grid">
+          <div class="water-stat">
+            <span class="water-label" id="et0-label">ET₀ (Evapotranspiration)</span>
+            <span class="water-big" id="et0-value">--</span>
+            <span class="water-unit">mm/day</span>
+          </div>
+          <div class="water-stat">
+            <span class="water-label" id="water-need-label">Crop Water Need</span>
+            <span class="water-big" id="water-need-value">--</span>
+            <span class="water-unit" id="water-need-unit">liters/acre/day</span>
+          </div>
+          <div class="water-stat water-decision">
+            <span class="water-label" id="irrigate-label">Irrigate Today?</span>
+            <span class="water-big" id="irrigate-value">❓</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- EMERGENCY HELPLINES -->
+      <section class="panel-card" id="helplines-panel">
+        <h3 class="panel-title" id="helplines-title">📞 Emergency Farmer Helplines</h3>
+        <div id="helplines-content" class="helplines-grid"></div>
+      </section>
+
+      <!-- FINANCIAL TOOLS -->
+      <section class="panel-card" id="finance-panel">
+        <h3 class="panel-title" id="finance-title">💰 Financial Tools</h3>
+        <div class="finance-grid">
+          <div class="finance-tool">
+            <h4 id="emi-title">🏦 Loan EMI Calculator</h4>
+            <div class="finance-inputs">
+              <label>Amount (₹) <input type="number" id="loan-amount" value="100000" min="1000"></label>
+              <label>Rate (%) <input type="number" id="loan-rate" value="4" min="1" max="20" step="0.5"></label>
+              <label>Years <input type="number" id="loan-years" value="3" min="1" max="15"></label>
+              <button class="btn-glass" id="calc-emi">Calculate</button>
+            </div>
+            <p id="emi-result" class="finance-result">--</p>
+          </div>
+          <div class="finance-tool">
+            <h4 id="income-title">📊 Income Estimator</h4>
+            <div class="finance-inputs">
+              <label>Area (acres) <input type="number" id="farm-area" value="2" min="0.1" step="0.1"></label>
+              <label>Yield (t/ha) <input type="number" id="est-yield" value="3" min="0.1" step="0.1"></label>
+            </div>
+            <p id="income-result" class="finance-result">--</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🤝 KRISHIKARM BUDDY CHAT -->
+      <section class="panel-card buddy-panel" id="buddy-panel">
+        <h3 class="panel-title" id="buddy-title">🤝 Krishikarm Buddy — Your Personal Farming Assistant</h3>
+        <p class="buddy-subtitle">Ask anything — market prices, schemes, techniques, pest solutions. Voice or text, in
+          your language!</p>
+        <div class="buddy-chat" id="buddy-chat">
+          <div class="chat-msg bot">
+            <span class="chat-avatar">🌾</span>
+            <div class="chat-bubble">Namaste! 🙏 I'm your Krishikarm buddy. Ask me:
+              <br>• <b>Where to sell rice?</b> — Best mandi prices
+              <br>• <b>Government schemes</b> — Eligibility check
+              <br>• <b>Budget farming tips</b> — ₹0 cost organic methods
+              <br>• <b>Pest problem</b> — Natural remedies
+              <br>• <b>Weather forecast</b> — Irrigation advice
+            </div>
+          </div>
+        </div>
+        <div class="buddy-input-row">
+          <input id="buddy-input" type="text" placeholder="Type your question... (Hindi/English/any language)" />
+          <button id="buddy-voice-btn" class="btn-buddy-mic" title="Record voice note">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z" />
+              <path
+                d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+            </svg>
+          </button>
+          <button id="buddy-send-btn" class="btn-buddy-send" title="Send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        </div>
+        <div class="buddy-quick-actions">
+          <button class="buddy-chip" data-q="Where can I sell my crop?">📦 Sell Crop</button>
+          <button class="buddy-chip" data-q="What government schemes am I eligible for?">🏛️ Schemes</button>
+          <button class="buddy-chip" data-q="Budget farming techniques">💡 Budget Tips</button>
+          <button class="buddy-chip" data-q="Pest problem natural remedy">🐛 Pest Help</button>
+          <button class="buddy-chip" data-q="Should I irrigate today?">💧 Irrigate?</button>
+          <button class="buddy-chip" data-q="Weather forecast for my farm">☁️ Weather</button>
+        </div>
+      </section>
+
+      <!-- 📊 MARKETPLACE -->
+      <section class="panel-card" id="marketplace-panel">
+        <h3 class="panel-title">📊 Mandi Prices — Where to Sell</h3>
+        <div class="market-controls">
+          <select id="market-crop-select" class="crop-select">
+            <option value="rice">🌾 Rice</option>
+            <option value="wheat">🌾 Wheat</option>
+            <option value="cotton">🏵️ Cotton</option>
+            <option value="soybean">🫘 Soybean</option>
+            <option value="sugarcane">🎋 Sugarcane</option>
+            <option value="maize">🌽 Maize</option>
+            <option value="onion">🧅 Onion</option>
+            <option value="potato">🥔 Potato</option>
+            <option value="tomato">🍅 Tomato</option>
+          </select>
+          <button id="fetch-prices-btn" class="btn-glass">🔄 Get Prices</button>
+        </div>
+        <div id="mandi-prices" class="mandi-grid"></div>
+      </section>
+
+      <!-- ⚡ ACTION CARDS -->
+      <section class="panel-card" id="action-panel">
+        <h3 class="panel-title">⚡ Quick Actions</h3>
+        <div class="action-grid">
+          <button class="action-card whatsapp-action" id="send-whatsapp-action">
+            <span class="action-icon">💬</span>
+            <span class="action-label">Send Report on WhatsApp</span>
+            <span class="action-desc">Send full farm report to your phone</span>
+          </button>
+          <button class="action-card scheme-action" id="register-scheme-action">
+            <span class="action-icon">🏛️</span>
+            <span class="action-label">Register for PM-KISAN</span>
+            <span class="action-desc">₹6000/year direct to bank account</span>
+          </button>
+          <button class="action-card tips-action" id="budget-tips-action">
+            <span class="action-icon">💡</span>
+            <span class="action-label">Budget Farming Guide</span>
+            <span class="action-desc">Free & low-cost techniques</span>
+          </button>
+          <button class="action-card voice-action" id="voice-buddy-action">
+            <span class="action-icon">🎤</span>
+            <span class="action-label">Talk to Buddy</span>
+            <span class="action-desc">Record voice note, get voice reply</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>🌾 Krishikarm — Powered by <strong>KisanNet v3</strong> (96.8% accuracy), <strong>Sarvam AI</strong>,
+        <strong>NASA GIBS</strong>, <strong>ISRO Bhuvan</strong>, <strong>NASA
+          POWER</strong>, <strong>Open-Meteo</strong> & <strong>SoilGrids</strong></p>
+      <p style="margin-top:4px;opacity:0.6">Patent-Pending AI Farming Platform • 42 Features • 127 Districts • 11
+        Languages • Voice-First</p>
+    </footer>
+
+  </div>
+
+  <!-- ===== KIOSK MODE OVERLAY ===== -->
+  <div id="kiosk-overlay" class="kiosk-overlay" style="display:none;">
+    <div class="kiosk-header">
+      <h1>🌾 Krishikarm — Village Kiosk</h1>
+      <button id="kiosk-close" class="kiosk-btn" onclick="toggleKiosk()">✕ Close</button>
+    </div>
+
+    <div class="kiosk-grid">
+      <!-- Camera Feed -->
+      <div class="kiosk-camera-section">
+        <div class="kiosk-camera-container">
+          <video id="kiosk-video" autoplay playsinline muted></video>
+          <canvas id="kiosk-canvas" style="display:none;"></canvas>
+          <div id="kiosk-face-overlay" class="face-overlay"></div>
+        </div>
+        <div id="kiosk-camera-status" class="kiosk-status">📷 Camera ready — Show your face</div>
+        <button id="kiosk-capture" class="kiosk-btn primary" onclick="captureAndIdentify()">📸 Identify Me</button>
+      </div>
+
+      <!-- Farmer Profile -->
+      <div class="kiosk-profile-section">
+        <div id="kiosk-profile" class="kiosk-card">
+          <h2>👤 Farmer Profile</h2>
+          <div id="kiosk-farmer-info" class="farmer-info">
+            <p class="placeholder">Show your face to the camera to get started</p>
+          </div>
+        </div>
+
+        <!-- Schemes -->
+        <div id="kiosk-schemes" class="kiosk-card" style="display:none;">
+          <h2>📋 Your Eligible Schemes</h2>
+          <div id="kiosk-schemes-list"></div>
+        </div>
+
+        <!-- Farm Intelligence -->
+        <div id="kiosk-farm-data" class="kiosk-card" style="display:none;">
+          <h2>🛰️ Your Farm (Satellite Data)</h2>
+          <div id="kiosk-sat-data"></div>
+        </div>
+      </div>
+
+      <!-- AI Chat -->
+      <div class="kiosk-chat-section">
+        <div class="kiosk-card chat-card">
+          <h2>🧠 Ask Me Anything</h2>
+          <div id="kiosk-chat-messages" class="chat-messages">
+            <div class="chat-message bot">
+              <p>Namaste! 🙏 I am your Krishikarm AI advisor. Show your face to begin, then ask me about your farm,
+                government schemes, weather, or any farming question.</p>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input id="kiosk-chat-input" type="text" placeholder="Type your question..." />
+            <button id="kiosk-voice-btn" class="kiosk-btn voice-btn" onclick="kioskVoiceInput()">🎤</button>
+            <button id="kiosk-send-btn" class="kiosk-btn primary" onclick="kioskSendMessage()">Send</button>
+          </div>
+          <div id="kiosk-voice-status" class="voice-status" style="display:none;">🎤 Listening...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Register Form (shown when face not recognized) -->
+    <div id="kiosk-register-form" class="kiosk-register" style="display:none;">
+      <h2>📝 New Farmer Registration</h2>
+      <div class="register-grid">
+        <input id="reg-name" placeholder="Your Name / आपका नाम" required />
+        <input id="reg-village" placeholder="Village / गाँव" required />
+        <input id="reg-district" placeholder="District / जिला" />
+        <select id="reg-state">
+          <option value="">State / राज्य</option>
+          <option>Andhra Pradesh</option>
+          <option>Bihar</option>
+          <option>Chhattisgarh</option>
+          <option>Gujarat</option>
+          <option>Haryana</option>
+          <option>Jharkhand</option>
+          <option>Karnataka</option>
+          <option>Kerala</option>
+          <option>Madhya Pradesh</option>
+          <option>Maharashtra</option>
+          <option>Odisha</option>
+          <option>Punjab</option>
+          <option>Rajasthan</option>
+          <option>Tamil Nadu</option>
+          <option>Telangana</option>
+          <option>Uttar Pradesh</option>
+          <option>West Bengal</option>
+        </select>
+        <select id="reg-lang">
+          <option value="hi">हिन्दी</option>
+          <option value="en">English</option>
+          <option value="kn">ಕನ್ನಡ</option>
+          <option value="te">తెలుగు</option>
+          <option value="ta">தமிழ்</option>
+          <option value="mr">मराठी</option>
+          <option value="bn">বাংলা</option>
+          <option value="gu">ગુજરાતી</option>
+          <option value="pa">ਪੰਜਾਬੀ</option>
+          <option value="or">ଓଡ଼ିଆ</option>
+        </select>
+        <input id="reg-phone" placeholder="Phone / फोन" type="tel" />
+        <input id="reg-land" placeholder="Land (acres) / ज़मीन (एकड़)" type="number" step="0.5" />
+        <input id="reg-crops" placeholder="Crops (comma separated)" />
+        <select id="reg-irrigation">
+          <option value="rainfed">Rain-fed / वर्षा सिंचित</option>
+          <option value="borewell">Borewell / बोरवेल</option>
+          <option value="canal">Canal / नहर</option>
+          <option value="drip">Drip / ड्रिप</option>
+        </select>
+        <button class="kiosk-btn primary" onclick="registerFarmer()">✅ Register / पंजीकरण करें</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+  <script src="/kiosk.js" defer></script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a1a0f"/>
+  <circle cx="256" cy="220" r="100" fill="none" stroke="#22c55e" stroke-width="6" stroke-dasharray="12 8" opacity="0.4"/>
+  <circle cx="256" cy="220" r="60" fill="none" stroke="#22c55e" stroke-width="4" stroke-dasharray="8 6" opacity="0.3"/>
+  <text x="256" y="240" text-anchor="middle" font-size="120" fill="#fff">🛰️</text>
+  <text x="256" y="380" text-anchor="middle" font-family="Arial" font-size="48" font-weight="bold" fill="#22c55e">Kisan-Eye</text>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial" font-size="20" fill="#94a3b8">🌾 किसान-आई</text>
+  <path d="M140 460 Q256 430 372 460" fill="none" stroke="#22c55e" stroke-width="3" opacity="0.5"/>
+</svg>

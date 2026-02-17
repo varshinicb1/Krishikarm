@@ -1,0 +1,14 @@
+{
+  "model": "KisanNet v3",
+  "data_sources": "6 free APIs (real)",
+  "n_samples": 82264,
+  "n_districts": 127,
+  "features": 42,
+  "parameters": 3826311,
+  "best_val_loss": 0.11854731343686581,
+  "best_val_accuracy": 0.9726071804846422,
+  "test_accuracy": 0.9676635059567226,
+  "test_mae": 0.010125406525772589,
+  "training_time_seconds": 606.6227493286133,
+  "device": "cuda"
+}

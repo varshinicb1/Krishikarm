@@ -1,0 +1,32 @@
+{
+    "name": "Kisan-Eye — Satellite Intelligence for Every Farmer",
+    "short_name": "Kisan-Eye",
+    "description": "Real-time satellite imagery, AI/ML crop intelligence, and voice-powered advisories for Indian farmers. Works offline.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0a0f1a",
+    "theme_color": "#22c55e",
+    "orientation": "portrait-primary",
+    "lang": "en",
+    "categories": [
+        "agriculture",
+        "weather",
+        "utilities"
+    ],
+    "icons": [
+        {
+            "src": "/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [],
+    "prefer_related_applications": false
+}

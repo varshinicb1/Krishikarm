@@ -1,0 +1,14 @@
+{
+  "model": "KisanNet v2",
+  "data_source": "NASA POWER + Open-Meteo (REAL)",
+  "n_samples": 28080,
+  "n_districts": 78,
+  "parameters": 842967,
+  "best_val_loss": 0.06623849563081474,
+  "best_val_accuracy": 0.9802943969610636,
+  "test_accuracy": 0.98005698005698,
+  "test_mae": 0.007964694854857943,
+  "training_time_seconds": 191.6526906490326,
+  "device": "cuda",
+  "features": 22
+}

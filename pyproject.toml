@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krishikarm"
+version = "0.1.0"
+description = "Crop distress prediction from satellite and weather data using a cross-attention transformer (KisanNet v3)."
+readme = "PKG_README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Varshini CB", email = "varshinicb1@gmail.com"},
+]
+keywords = [
+    "agriculture",
+    "satellite",
+    "crop-prediction",
+    "deep-learning",
+    "transformer",
+    "india",
+    "farming",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.24",
+]
+
+[project.urls]
+Homepage = "https://github.com/varshinicb1/Krishikarm"
+Repository = "https://github.com/varshinicb1/Krishikarm"
+Issues = "https://github.com/varshinicb1/Krishikarm/issues"
+
+[tool.setuptools.packages.find]
+include = ["krishikarm*"]
+
+[tool.setuptools.package-data]
+krishikarm = ["weights/*.pth"]

@@ -1,0 +1,48 @@
+# Large model files (exceed GitHub 100MB limit)
+backend/models/models/
+backend/models/max_satellite_data.json
+backend/models/real_satellite_data.json
+*.onnx
+*.zip
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.egg-info/
+build/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.venv
+env/
+*.db
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
