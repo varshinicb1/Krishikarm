@@ -1,26 +1,27 @@
-/* ===== KRISHIKARM DESIGN SYSTEM ===== */
+/* ===== KRISHIKARM DESIGN SYSTEM — LIGHT THEME ===== */
 :root {
-  --bg-primary: #060b14;
-  --bg-secondary: #0d1525;
-  --bg-card: rgba(13, 21, 37, 0.9);
-  --bg-glass: rgba(255, 255, 255, 0.03);
-  --border-glass: rgba(255, 255, 255, 0.07);
-  --text-primary: #edf2f7;
-  --text-secondary: #8b9dc3;
-  --text-muted: #5a6a85;
-  --accent: #10b981;
-  --accent-glow: rgba(16, 185, 129, 0.2);
-  --accent-warm: #f59e0b;
-  --accent-blue: #3b82f6;
-  --accent-red: #ef4444;
-  --accent-cyan: #06b6d4;
-  --accent-purple: #a855f7;
-  --accent-gold: #d4a216;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 30px rgba(16, 185, 129, 0.08);
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-glass: rgba(241, 245, 249, 0.8);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --accent: #059669;
+  --accent-glow: rgba(5, 150, 105, 0.15);
+  --accent-warm: #d97706;
+  --accent-blue: #2563eb;
+  --accent-red: #dc2626;
+  --accent-cyan: #0891b2;
+  --accent-purple: #7c3aed;
+  --accent-gold: #b45309;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 20px rgba(5, 150, 105, 0.06);
   --font: 'Outfit', 'Noto Sans Devanagari', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -48,7 +49,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 14px 32px;
-  background: rgba(10, 15, 26, 0.92);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-glass);
   position: sticky;
@@ -60,6 +61,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  color: var(--text-primary);
 }
 
 .logo-icon {
@@ -2155,4 +2157,161 @@ body.low-data .section-card {
 .voice-action:hover {
   background: rgba(168, 85, 247, 0.12);
   border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* ===== IoT TELEMETRY FUSION PANEL ===== */
+.telemetry-fusion-panel {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.95) 50%, rgba(30, 58, 138, 0.12) 100%);
+  margin-bottom: 24px;
+}
+
+.tel-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-left: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tel-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: telPulse 2s ease-in-out infinite;
+}
+
+@keyframes telPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+.tel-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.tel-metric-card {
+  padding: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.tel-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.tel-confidence-card { border-top: 3px solid #3b82f6; }
+.tel-moisture-card { border-top: 3px solid #10b981; }
+.tel-irrigation-card { border-top: 3px solid #f59e0b; }
+.tel-pest-card { border-top: 3px solid #ef4444; }
+
+.tel-metric-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.tel-metric-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.tel-metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.tel-confidence-card .tel-metric-value { color: #60a5fa; }
+.tel-moisture-card .tel-metric-value { color: #34d399; }
+.tel-irrigation-card .tel-metric-value { color: #fbbf24; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.tel-pest-card .tel-metric-value { color: #f87171; }
+
+.tel-metric-bar-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.tel-metric-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 0%;
+}
+
+.confidence-fill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.moisture-fill {
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+}
+
+.tel-anomalies-banner {
+  display: none;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.tel-anomalies-banner.active {
+  display: block;
+  animation: slideFadeIn 0.4s ease;
+}
+
+.tel-source-row {
+  display: flex;
+  gap: 20px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.tel-source {
+  font-size: 10px;
+  color: var(--text-muted, rgba(255,255,255,0.35));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .tel-metrics-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tel-source-row {
+    flex-direction: column;
+    gap: 4px;
+  }
 }

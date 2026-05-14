@@ -1,11 +1,11 @@
 {
-    "name": "Kisan-Eye — Satellite Intelligence for Every Farmer",
-    "short_name": "Kisan-Eye",
-    "description": "Real-time satellite imagery, AI/ML crop intelligence, and voice-powered advisories for Indian farmers. Works offline.",
+    "name": "Krishikarm — कृषिकर्म | AI-Powered Farming Intelligence",
+    "short_name": "Krishikarm",
+    "description": "Real-time satellite imagery, IoT sensor fusion, AI/ML crop intelligence, and voice-powered advisories for Indian farmers. Works offline.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0a0f1a",
-    "theme_color": "#22c55e",
+    "theme_color": "#10b981",
     "orientation": "portrait-primary",
     "lang": "en",
     "categories": [
@@ -15,15 +15,9 @@
     ],
     "icons": [
         {
-            "src": "/icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        },
-        {
-            "src": "/icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
+            "src": "/icon-512.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
             "purpose": "any maskable"
         }
     ],

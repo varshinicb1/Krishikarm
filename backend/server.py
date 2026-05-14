@@ -10,7 +10,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import secrets
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +24,7 @@ import voice_engine
 import llm_engine
 import scheme_matcher
 import satellite_advisor
+import telemetry_db
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
@@ -35,13 +37,41 @@ app = FastAPI(
     version="6.0.0"
 )
 
+# Secure CORS policy
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- AUTHENTICATION DEPENDENCY ---
+
+async def get_current_farmer(
+    authorization: str = Header(None),
+    x_farmer_id: str = Header(None)
+):
+    if not authorization or not x_farmer_id:
+        raise HTTPException(401, "Missing authorization credentials")
+    
+    token = authorization.replace("Bearer ", "")
+    try:
+        f_id = int(x_farmer_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid Farmer ID format")
+
+    if not farmer_db.verify_token(f_id, token):
+        logger.warning(f"⚠️ Auth failure for Farmer ID: {f_id}")
+        raise HTTPException(401, "Invalid or expired token")
+    
+    farmer = farmer_db.get_farmer(f_id)
+    if not farmer:
+        raise HTTPException(404, "Farmer not found")
+    return farmer
 
 
 # ===== MODELS =====
@@ -69,6 +99,18 @@ class ChatRequest(BaseModel):
     farmer_id: int
     query: str
     language: str = "hi"
+
+class TelemetryPayload(BaseModel):
+    node_id: str
+    timestamp: float
+    lat: float
+    lng: float
+    temp: float
+    humidity: float
+    soil_moisture: float
+    ph_level: float
+    battery_mv: int
+
     mode: str = "text"
 
 class YieldRecord(BaseModel):
@@ -134,11 +176,13 @@ async def identify_farmer_route(image: UploadFile = File(...)):
 
     if farmer_id:
         farmer = farmer_db.get_farmer(farmer_id)
+        token = farmer.get('token')
         return {
             "status": "identified",
             "farmer_id": farmer_id,
             "confidence": round(confidence, 3),
-            "farmer": farmer
+            "farmer": farmer,
+            "token": token
         }
 
     return {
@@ -172,6 +216,9 @@ async def register_farmer(
     if existing_id and score > 0.5:
         raise HTTPException(409, f"Farmer already registered (ID: {existing_id}, match: {score:.2f})")
 
+    # Generate secure token
+    token = secrets.token_hex(32)
+    
     # Create farmer
     farmer_id = farmer_db.create_farmer(
         name=profile['name'],
@@ -190,20 +237,24 @@ async def register_farmer(
         family_members=profile.get('family_members', 4),
         bpl_card=profile.get('bpl_card', 0),
         financial_state=profile.get('financial_state', 'stable'),
+        token=token
     )
 
     farmer = farmer_db.get_farmer(farmer_id)
     logger.info(f"✅ Registered farmer: {profile['name']} (ID: {farmer_id})")
 
-    return {"status": "registered", "farmer_id": farmer_id, "farmer": farmer}
+    return {"status": "registered", "farmer_id": farmer_id, "farmer": farmer, "token": token}
 
 
 # --- CHAT / AI ADVISOR ---
 
 @app.post("/chat")
-async def chat_route(request: ChatRequest):
+async def chat_route(request: ChatRequest, current_farmer: dict = Depends(get_current_farmer)):
     """AI-powered chat with farmer context."""
-    farmer = farmer_db.get_farmer(request.farmer_id)
+    if request.farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    
+    farmer = current_farmer
     if not farmer:
         raise HTTPException(404, "Farmer not found")
 
@@ -272,9 +323,12 @@ async def synthesize_route(text: str = Form(...), language: str = Form("hi")):
 # --- SCHEMES ---
 
 @app.get("/schemes/{farmer_id}")
-async def get_farmer_schemes(farmer_id: int):
+async def get_farmer_schemes(farmer_id: int, current_farmer: dict = Depends(get_current_farmer)):
     """Get all eligible schemes for a farmer."""
-    farmer = farmer_db.get_farmer(farmer_id)
+    if farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    
+    farmer = current_farmer
     if not farmer:
         raise HTTPException(404, "Farmer not found")
     schemes = scheme_matcher.match_schemes(farmer)
@@ -284,9 +338,12 @@ async def get_farmer_schemes(farmer_id: int):
 # --- FARM DATA ---
 
 @app.get("/farm-data/{farmer_id}")
-async def get_farm_data(farmer_id: int):
+async def get_farm_data(farmer_id: int, current_farmer: dict = Depends(get_current_farmer)):
     """Get satellite intelligence for a farmer's location."""
-    farmer = farmer_db.get_farmer(farmer_id)
+    if farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    
+    farmer = current_farmer
     if not farmer:
         raise HTTPException(404, "Farmer not found")
     if not farmer.get('latitude') or not farmer.get('longitude'):
@@ -297,9 +354,12 @@ async def get_farm_data(farmer_id: int):
 
 
 @app.post("/yield")
-async def add_yield(record: YieldRecord):
+async def add_yield(record: YieldRecord, current_farmer: dict = Depends(get_current_farmer)):
     """Record yield history for a farmer."""
-    farmer = farmer_db.get_farmer(record.farmer_id)
+    if record.farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    
+    farmer = current_farmer
     if not farmer:
         raise HTTPException(404, "Farmer not found")
     farmer_db.add_yield_record(
@@ -310,19 +370,20 @@ async def add_yield(record: YieldRecord):
 
 
 @app.get("/yield/{farmer_id}")
-async def get_yield(farmer_id: int):
+async def get_yield(farmer_id: int, current_farmer: dict = Depends(get_current_farmer)):
     """Get yield history for a farmer."""
+    if farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
     history = farmer_db.get_yield_history(farmer_id)
     return {"farmer_id": farmer_id, "yields": history}
 
 
 @app.get("/farmer/{farmer_id}")
-async def get_farmer_route(farmer_id: int):
+async def get_farmer_route(farmer_id: int, current_farmer: dict = Depends(get_current_farmer)):
     """Get farmer profile."""
-    farmer = farmer_db.get_farmer(farmer_id)
-    if not farmer:
-        raise HTTPException(404, "Farmer not found")
-    return farmer
+    if farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    return current_farmer
 
 
 @app.get("/farmers")
@@ -408,20 +469,22 @@ try:
                 'data_source': 'NASA POWER + Open-Meteo (real)',
             }
 
-    kisan_predictor = KisanNetV2Predictor("models/kisan_net_v2.pth")
+    KISAN_MODEL_PATH = os.getenv("KISAN_MODEL_PATH", "models/kisan_net_v2.pth")
+    kisan_predictor = KisanNetV2Predictor(KISAN_MODEL_PATH)
 except Exception as e:
     logger.warning(f"⚠️ KisanNet not loaded: {e}")
 
 
 @app.get("/predict/{farmer_id}")
-async def predict_distress(farmer_id: int):
+async def predict_distress(farmer_id: int, current_farmer: dict = Depends(get_current_farmer)):
     """Run KisanNet v2 crop distress prediction using live satellite data."""
     if not kisan_predictor:
         raise HTTPException(503, "KisanNet model not loaded")
 
-    farmer = farmer_db.get_farmer(farmer_id)
-    if not farmer:
-        raise HTTPException(404, "Farmer not found")
+    if farmer_id != current_farmer['id']:
+        raise HTTPException(403, "Access denied: Farmer ID mismatch")
+    
+    farmer = current_farmer
 
     # Get live satellite data
     lat = farmer.get("latitude", 25.3)
@@ -583,6 +646,73 @@ async def buddy_translate(text: str = Form(...), source: str = Form("en"),
     """Translate text between Indian languages."""
     translated = await sarvam_engine.translate(text, source, target)
     return {"original": text, "translated": translated, "source": source, "target": target}
+
+
+# ===== TELEMETRY & AI FUSION =====
+
+@app.post("/api/v1/sync")
+async def sync_telemetry(payloads: list[TelemetryPayload]):
+    """Sync batched telemetry from Node 2 (via Mobile App)."""
+    synced_count = 0
+    for p in payloads:
+        telemetry_db.insert_telemetry(p.node_id, p.dict())
+        synced_count += 1
+    return {"status": "success", "synced": synced_count}
+
+@app.get("/api/v1/farm/{farm_id}/analytics")
+async def get_farm_analytics(farm_id: str):
+    """Retrieve fused analytics based on local node + satellite data."""
+    latest = telemetry_db.get_latest_telemetry()
+    
+    # Sensor data (Local Node 1)
+    local_temp = latest[0][5] if latest else 25.0
+    local_moisture = latest[0][7] if latest else 40.0
+    
+    # Simulated Satellite Data (Open-Meteo/NASA POWER)
+    satellite_moisture_estimate = 38.0
+    satellite_confidence = 0.7
+    local_confidence = 0.9
+    
+    # --- Kalman Filter 1D Simulation for Data Fusion ---
+    # Prior state (satellite prediction)
+    x_prior = satellite_moisture_estimate
+    P_prior = (1.0 - satellite_confidence) * 10.0 # Error covariance
+    
+    # Measurement update (local sensor)
+    z = local_moisture # Local reading
+    R = (1.0 - local_confidence) * 5.0 # Measurement noise covariance
+    
+    # Kalman Gain
+    K = P_prior / (P_prior + R)
+    
+    # State update (Fused true moisture)
+    x_post = x_prior + K * (z - x_prior)
+    P_post = (1 - K) * P_prior
+    
+    fused_moisture = round(x_post, 2)
+    fusion_confidence = round(1.0 - (P_post / 10.0), 3)
+    
+    anomalies = []
+    if fused_moisture < 20.0:
+        anomalies.append(f"CRITICAL: Soil moisture at {fused_moisture}%. High drought risk.")
+    elif abs(local_moisture - satellite_moisture_estimate) > 15.0:
+        anomalies.append("WARNING: High variance between local sensor and satellite data. Possible sensor drift/calibration needed.")
+        
+    return {
+        "farm_id": farm_id,
+        "fusion_confidence": fusion_confidence,
+        "anomalies": anomalies,
+        "recommendations": {
+            "irrigation": f"Irrigate {int((50.0 - fused_moisture) * 200)} liters today" if fused_moisture < 45.0 else "No irrigation needed.",
+            "pest_risk": "High" if (local_temp > 30.0 and fused_moisture > 60.0) else "Low"
+        },
+        "latest_readings": {
+            "raw_local_moisture": local_moisture,
+            "satellite_estimate": satellite_moisture_estimate,
+            "fused_moisture": fused_moisture,
+            "temp": local_temp
+        }
+    }
 
 
 # ===== STARTUP =====

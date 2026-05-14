@@ -199,10 +199,14 @@ async function selectLocation(lat, lng) {
     document.getElementById('loading-screen').classList.remove('hidden');
     document.getElementById('dashboard').classList.add('hidden');
     try {
-        const [weather, power] = await Promise.all([fetchOpenMeteo(lat, lng), fetchNASAPower(lat, lng)]);
+        const [weather, power, telemetry] = await Promise.all([
+            fetchOpenMeteo(lat, lng), 
+            fetchNASAPower(lat, lng),
+            fetchFarmAnalytics("farm_001")
+        ]);
         const ndvi = computeNDVI(power, weather);
         currentWeather = weather; currentPower = power; currentNDVI = ndvi; currentLat = lat; currentLng = lng;
-        renderDashboard(weather, power, ndvi, lat, lng);
+        renderDashboard(weather, power, ndvi, lat, lng, telemetry);
         runMLInference(weather, power, ndvi);
     } catch (err) {
         console.error('Data fetch error:', err);
@@ -227,6 +231,19 @@ async function fetchNASAPower(lat, lng) {
     const fmt = d => d.toISOString().split('T')[0].replace(/-/g, '');
     const url = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN,RH2M&community=AG&longitude=${lng}&latitude=${lat}&start=${fmt(past30)}&end=${fmt(today)}&format=JSON`;
     return await fetch(url).then(r => r.json());
+}
+
+// --- TELEMETRY FUSION API ---
+async function fetchFarmAnalytics(farmId) {
+    try {
+        const res = await fetch(`${API}/api/v1/farm/${farmId}/analytics`);
+        if(res.ok) {
+            return await res.json();
+        }
+    } catch(e) {
+        console.warn("Farm analytics not reachable", e);
+    }
+    return null;
 }
 
 // --- NDVI ---
@@ -265,7 +282,7 @@ function weatherDesc(code) {
 // ===== KISAN-EYE V3 — PART 2: RENDERING, ML, VOICE =====
 
 // --- RENDER DASHBOARD ---
-function renderDashboard(weather, power, ndvi, lat, lng) {
+function renderDashboard(weather, power, ndvi, lat, lng, telemetry) {
     document.getElementById('loading-screen').classList.add('hidden');
     document.getElementById('dashboard').classList.remove('hidden');
     const fc = weather.forecast;
@@ -274,6 +291,65 @@ function renderDashboard(weather, power, ndvi, lat, lng) {
     document.getElementById('ndvi-value').textContent = ndvi.value.toFixed(2);
     document.getElementById('ndvi-value').style.color = ndvi.color;
     document.getElementById('ndvi-label').textContent = ndvi.label;
+    
+    // Fill Telemetry Panel
+    if (telemetry) {
+        const confPct = (telemetry.fusion_confidence * 100).toFixed(1);
+        const moistPct = telemetry.latest_readings.fused_moisture;
+        document.getElementById('tel-confidence').textContent = `${confPct}%`;
+        document.getElementById('tel-moisture').textContent = `${moistPct}%`;
+        document.getElementById('tel-irrigation').textContent = telemetry.recommendations.irrigation;
+        document.getElementById('tel-pest-risk').textContent = telemetry.recommendations.pest_risk;
+        
+        // Animated bar fills
+        const confBar = document.getElementById('tel-confidence-bar');
+        const moistBar = document.getElementById('tel-moisture-bar');
+        if (confBar) confBar.style.width = `${confPct}%`;
+        if (moistBar) moistBar.style.width = `${Math.min(moistPct, 100)}%`;
+        
+        // Status badge
+        const badge = document.getElementById('tel-status-badge');
+        if (badge) {
+            badge.querySelector('.tel-status-dot').style.background = '#22c55e';
+            badge.childNodes[1].textContent = ' Satellite Active';
+        }
+
+        const anomDiv = document.getElementById('tel-anomalies');
+        if (telemetry.anomalies && telemetry.anomalies.length > 0) {
+            anomDiv.classList.add('active');
+            anomDiv.innerHTML = telemetry.anomalies.map(a => `<div>⚠️ ${a}</div>`).join('');
+        } else {
+            anomDiv.classList.remove('active');
+        }
+    } else {
+        document.getElementById('tel-confidence').textContent = `--%`;
+        document.getElementById('tel-moisture').textContent = `--%`;
+        document.getElementById('tel-irrigation').textContent = `Satellite-only mode`;
+        document.getElementById('tel-pest-risk').textContent = `--`;
+        document.getElementById('tel-anomalies').classList.remove('active');
+        
+        // Use satellite soil moisture as fallback
+        const smHourlyTel = fc.hourly;
+        if (smHourlyTel) {
+            const latestTelIdx = smHourlyTel.time.length - 1;
+            const satMoisture = (smHourlyTel.soil_moisture_0_to_1cm?.[latestTelIdx] ?? 0) * 100;
+            document.getElementById('tel-moisture').textContent = `${satMoisture.toFixed(1)}%`;
+            const moistBar = document.getElementById('tel-moisture-bar');
+            if (moistBar) moistBar.style.width = `${Math.min(satMoisture, 100)}%`;
+            document.getElementById('tel-confidence').textContent = `70.0%`;
+            const confBar = document.getElementById('tel-confidence-bar');
+            if (confBar) confBar.style.width = `70%`;
+            
+            // Satellite-only irrigation estimate
+            if (satMoisture < 45) {
+                document.getElementById('tel-irrigation').textContent = `Irrigate ~${Math.round((50 - satMoisture) * 200)} liters today`;
+            } else {
+                document.getElementById('tel-irrigation').textContent = `No irrigation needed`;
+            }
+            document.getElementById('tel-pest-risk').textContent = 'Low';
+        }
+    }
+
     const smHourly = fc.hourly;
     if (smHourly) {
         const latestIdx = smHourly.time.length - 1;
@@ -480,7 +556,21 @@ function generateAdvisory(ndvi, weather, power, lat, lng) {
         }
     }
     const container = document.getElementById('advisory-content');
-    container.innerHTML = advisories.length ? advisories.map(a => `<div class="advisory-item ${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : ''}">${a.text}</div>`).join('') : `<p class="advisory-placeholder">${i18n[currentLang].advisoryPlaceholder}</p>`;
+    if (!container) return;
+    container.innerHTML = '';
+    if (advisories.length) {
+        advisories.forEach(a => {
+            const div = document.createElement('div');
+            div.className = `advisory-item ${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : ''}`;
+            div.textContent = a.text;
+            container.appendChild(div);
+        });
+    } else {
+        const p = document.createElement('p');
+        p.className = 'advisory-placeholder';
+        p.textContent = i18n[currentLang].advisoryPlaceholder;
+        container.appendChild(p);
+    }
     window._lastAdvisory = advisories.map(a => a.text).join('. ');
 }
 
@@ -598,12 +688,44 @@ const govSchemes = [
 function renderSchemes() {
     const container = document.getElementById('schemes-content');
     if (!container) return;
-    container.innerHTML = govSchemes.map(s => {
+    container.innerHTML = '';
+    govSchemes.forEach(s => {
         const name = s.name[currentLang] || s.name.en;
         const desc = s.desc[currentLang] || s.desc.en;
-        const tags = s.tags.map(t => `<span class="scheme-tag">${t}</span>`).join('');
-        return `<div class="scheme-card"><h4>${name}</h4>${tags}<p>${desc}</p><a class="scheme-link" href="${s.url}" target="_blank" rel="noopener">🔗 ${currentLang === 'en' ? 'Visit Portal' : currentLang === 'hi' ? 'पोर्टल देखें' : currentLang === 'kn' ? 'ಪೋರ್ಟಲ್ ನೋಡಿ' : currentLang === 'te' ? 'పోర్టల్ చూడండి' : currentLang === 'ta' ? 'போர்ட்டல் பார்க்கவும்' : 'पोर्टल पहा'} →</a></div>`;
-    }).join('');
+        
+        const card = document.createElement('div');
+        card.className = 'scheme-card';
+        
+        const h4 = document.createElement('h4');
+        h4.textContent = name;
+        card.appendChild(h4);
+        
+        s.tags.forEach(t => {
+            const span = document.createElement('span');
+            span.className = 'scheme-tag';
+            span.textContent = t;
+            card.appendChild(span);
+        });
+        
+        const p = document.createElement('p');
+        p.textContent = desc;
+        card.appendChild(p);
+        
+        const a = document.createElement('a');
+        a.className = 'scheme-link';
+        a.href = s.url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        const linkText = currentLang === 'en' ? 'Visit Portal' : 
+                         currentLang === 'hi' ? 'पोर्टल देखें' : 
+                         currentLang === 'kn' ? 'ಪೋರ್ಟಲ್ ನೋಡಿ' : 
+                         currentLang === 'te' ? 'పోర్టల్ చూడండి' : 
+                         currentLang === 'ta' ? 'போர்ட்டல் பார்க்கவும்' : 'पोर्टल पहा';
+        a.textContent = `🔗 ${linkText} →`;
+        card.appendChild(a);
+        
+        container.appendChild(card);
+    });
 }
 renderSchemes();
 
@@ -903,7 +1025,7 @@ updateLanguage = function () {
 console.log('🌾 Krishikarm v7 — AI Farming Intelligence Platform loaded');
 
 // ===== FARMER BUDDY ENGINE =====
-const API = 'http://localhost:8000';
+const API = '';
 
 // --- BUDDY CHAT ---
 const buddyChat = document.getElementById('buddy-chat');

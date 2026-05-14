@@ -134,11 +134,36 @@ const helplines = [
 function renderHelplines() {
     const container = document.getElementById('helplines-content');
     if (!container) return;
-    container.innerHTML = helplines.map(h => {
+    container.innerHTML = '';
+    helplines.forEach(h => {
         const name = h.name[currentLang] || h.name.en;
         const desc = h.desc[currentLang] || h.desc.en;
-        return `<div class="helpline-card" onclick="window.open('tel:${h.number}')"><span class="helpline-icon">${h.icon}</span><div><h4>${name}</h4><p>${desc}</p></div><span class="helpline-number">${h.number}</span></div>`;
-    }).join('');
+        
+        const card = document.createElement('div');
+        card.className = 'helpline-card';
+        card.onclick = () => window.open(`tel:${h.number}`);
+        
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'helpline-icon';
+        iconSpan.textContent = h.icon;
+        card.appendChild(iconSpan);
+        
+        const contentDiv = document.createElement('div');
+        const h4 = document.createElement('h4');
+        h4.textContent = name;
+        const p = document.createElement('p');
+        p.textContent = desc;
+        contentDiv.appendChild(h4);
+        contentDiv.appendChild(p);
+        card.appendChild(contentDiv);
+        
+        const numSpan = document.createElement('span');
+        numSpan.className = 'helpline-number';
+        numSpan.textContent = h.number;
+        card.appendChild(numSpan);
+        
+        container.appendChild(card);
+    });
 }
 renderHelplines();
 

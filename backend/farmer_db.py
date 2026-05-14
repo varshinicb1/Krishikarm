@@ -48,6 +48,7 @@ def init_db():
             debt_amount REAL DEFAULT 0,
             family_members INTEGER DEFAULT 4,
             bpl_card INTEGER DEFAULT 0,
+            token TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -102,20 +103,20 @@ def init_db():
 
 def create_farmer(name, village, district, state, language="hi",
                    latitude=None, longitude=None, land_acres=0, crops=None,
-                   face_embedding=None, phone=None, **kwargs):
+                   face_embedding=None, phone=None, token=None, **kwargs):
     conn = get_db()
     embedding_blob = face_embedding.tobytes() if face_embedding is not None else None
     cursor = conn.execute("""
         INSERT INTO farmers (name, village, district, state, language, latitude, longitude,
                              land_acres, crops, face_embedding, phone,
                              father_name, aadhaar_last4, bpl_card, family_members,
-                             irrigation_type, financial_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             irrigation_type, financial_state, token)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (name, village, district, state, language, latitude, longitude,
           land_acres, json.dumps(crops or []), embedding_blob, phone,
           kwargs.get('father_name'), kwargs.get('aadhaar_last4'),
           kwargs.get('bpl_card', 0), kwargs.get('family_members', 4),
-          kwargs.get('irrigation_type'), kwargs.get('financial_state', 'stable')))
+          kwargs.get('irrigation_type'), kwargs.get('financial_state', 'stable'), token))
     farmer_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -131,6 +132,15 @@ def get_farmer(farmer_id):
         d['crops'] = json.loads(d['crops']) if d['crops'] else []
         return d
     return None
+
+
+def verify_token(farmer_id, token):
+    if not token:
+        return False
+    conn = get_db()
+    row = conn.execute("SELECT 1 FROM farmers WHERE id=? AND token=?", (farmer_id, token)).fetchone()
+    conn.close()
+    return row is not None
 
 
 def get_all_farmers_with_embeddings():

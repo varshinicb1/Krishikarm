@@ -9,7 +9,8 @@ const BACKEND_URL = window.location.hostname === 'localhost'
     : `${window.location.protocol}//${window.location.hostname}:8000`;
 
 let kioskActive = false;
-let currentFarmerId = null;
+let currentFarmerId = localStorage.getItem('krishikarm_farmer_id');
+let currentToken = localStorage.getItem('krishikarm_token');
 let videoStream = null;
 let capturedImageBlob = null;
 
@@ -96,6 +97,9 @@ window.captureAndIdentify = async function () {
 
         if (data.status === 'identified') {
             currentFarmerId = data.farmer_id;
+            currentToken = data.token;
+            localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
+            localStorage.setItem('krishikarm_token', currentToken);
             status.textContent = `✅ Welcome back, ${data.farmer.name}! (${(data.confidence * 100).toFixed(0)}% match)`;
             status.style.color = '#22c55e';
             showFarmerProfile(data.farmer);
@@ -144,23 +148,49 @@ function showFarmerProfile(farmer) {
 // ===== LOAD SCHEMES =====
 async function loadSchemes(farmerId) {
     try {
-        const resp = await fetch(`${BACKEND_URL}/schemes/${farmerId}`);
+        const resp = await fetch(`${BACKEND_URL}/schemes/${farmerId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'X-Farmer-ID': currentFarmerId
+            }
+        });
         const data = await resp.json();
 
         const container = document.getElementById('kiosk-schemes-list');
         const panel = document.getElementById('kiosk-schemes');
         panel.style.display = 'block';
 
-        container.innerHTML = data.schemes.map(s => `
-      <div class="scheme-item">
-        <div class="scheme-name">${s.name}</div>
-        <div class="scheme-benefit">${s.benefit}</div>
-        <div class="scheme-meta">
-          <span>${s.reason}</span>
-          <a href="tel:${s.helpline}" class="scheme-call">📞 ${s.helpline}</a>
-        </div>
-      </div>
-    `).join('');
+        container.innerHTML = '';
+        data.schemes.forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'scheme-item';
+            
+            const name = document.createElement('div');
+            name.className = 'scheme-name';
+            name.textContent = s.name;
+            
+            const benefit = document.createElement('div');
+            benefit.className = 'scheme-benefit';
+            benefit.textContent = s.benefit;
+            
+            const meta = document.createElement('div');
+            meta.className = 'scheme-meta';
+            
+            const reason = document.createElement('span');
+            reason.textContent = s.reason;
+            
+            const call = document.createElement('a');
+            call.href = `tel:${s.helpline}`;
+            call.className = 'scheme-call';
+            call.textContent = `📞 ${s.helpline}`;
+            
+            meta.appendChild(reason);
+            meta.appendChild(call);
+            item.appendChild(name);
+            item.appendChild(benefit);
+            item.appendChild(meta);
+            container.appendChild(item);
+        });
     } catch (e) {
         console.warn('Schemes fetch failed:', e);
     }
@@ -169,7 +199,12 @@ async function loadSchemes(farmerId) {
 // ===== LOAD FARM DATA =====
 async function loadFarmData(farmerId) {
     try {
-        const resp = await fetch(`${BACKEND_URL}/farm-data/${farmerId}`);
+        const resp = await fetch(`${BACKEND_URL}/farm-data/${farmerId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'X-Farmer-ID': currentFarmerId
+            }
+        });
         const data = await resp.json();
         const fd = data.farm_data;
 
@@ -177,16 +212,32 @@ async function loadFarmData(farmerId) {
         const panel = document.getElementById('kiosk-farm-data');
         panel.style.display = 'block';
 
-        container.innerHTML = `
-      <div class="sat-grid">
-        <div class="sat-item"><span>🌡️ Temp</span><strong>${fd.temperature || '--'}°C</strong></div>
-        <div class="sat-item"><span>💧 Humidity</span><strong>${fd.humidity || '--'}%</strong></div>
-        <div class="sat-item"><span>🌱 NDVI</span><strong>${fd.ndvi || '--'} (${fd.ndvi_label || ''})</strong></div>
-        <div class="sat-item"><span>🌊 Soil Moisture</span><strong>${fd.soil_moisture ? (fd.soil_moisture * 100).toFixed(0) + '%' : '--'}</strong></div>
-        <div class="sat-item"><span>🌧️ Rain (7d)</span><strong>${fd.rainfall_7d || 0} mm</strong></div>
-        <div class="sat-item"><span>💧 Irrigate?</span><strong style="color:${fd.irrigate_decision?.includes('YES') ? '#ef4444' : '#22c55e'}">${fd.irrigate_decision || '--'}</strong></div>
-      </div>
-    `;
+        container.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'sat-grid';
+        
+        const metrics = [
+            { label: '🌡️ Temp', value: `${fd.temperature || '--'}°C` },
+            { label: '💧 Humidity', value: `${fd.humidity || '--'}%` },
+            { label: '🌱 NDVI', value: `${fd.ndvi || '--'} (${fd.ndvi_label || ''})` },
+            { label: '🌊 Soil Moisture', value: fd.soil_moisture ? (fd.soil_moisture * 100).toFixed(0) + '%' : '--' },
+            { label: '🌧️ Rain (7d)', value: `${fd.rainfall_7d || 0} mm` },
+            { label: '💧 Irrigate?', value: fd.irrigate_decision || '--', color: fd.irrigate_decision?.includes('YES') ? '#ef4444' : '#22c55e' }
+        ];
+        
+        metrics.forEach(m => {
+            const item = document.createElement('div');
+            item.className = 'sat-item';
+            const lbl = document.createElement('span');
+            lbl.textContent = m.label;
+            const val = document.createElement('strong');
+            val.textContent = m.value;
+            if (m.color) val.style.color = m.color;
+            item.appendChild(lbl);
+            item.appendChild(val);
+            grid.appendChild(item);
+        });
+        container.appendChild(grid);
     } catch (e) {
         console.warn('Farm data fetch failed:', e);
     }
@@ -211,7 +262,11 @@ window.kioskSendMessage = async function () {
     try {
         const resp = await fetch(`${BACKEND_URL}/chat`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`,
+                'X-Farmer-ID': currentFarmerId
+            },
             body: JSON.stringify({
                 farmer_id: currentFarmerId,
                 query: query,
@@ -245,9 +300,12 @@ window.kioskSendMessage = async function () {
 
 function addChatMessage(role, text) {
     const container = document.getElementById('kiosk-chat-messages');
+    if (!container) return;
     const div = document.createElement('div');
     div.className = `chat-message ${role}`;
-    div.innerHTML = `<p>${text}</p>`;
+    const p = document.createElement('p');
+    p.textContent = text;
+    div.appendChild(p);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
@@ -322,6 +380,9 @@ window.registerFarmer = async function () {
 
         if (data.status === 'registered') {
             currentFarmerId = data.farmer_id;
+            currentToken = data.token;
+            localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
+            localStorage.setItem('krishikarm_token', currentToken);
             document.getElementById('kiosk-register-form').style.display = 'none';
             document.getElementById('kiosk-camera-status').textContent = `✅ Registered! Welcome, ${data.farmer.name}!`;
             document.getElementById('kiosk-camera-status').style.color = '#22c55e';

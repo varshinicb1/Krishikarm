@@ -8,7 +8,7 @@
   <meta name="description"
     content="Krishikarm: Patent-pending AI farming platform with satellite intelligence, real-time crop advisory, voice-powered assistance in 11 Indian languages, and automated government scheme enrollment." />
   <meta name="theme-color" content="#10b981" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/icon-512.svg" />
@@ -246,6 +246,47 @@
           <p class="metric-label" id="weather-desc">--</p>
         </div>
       </div>
+
+      <!-- IoT TELEMETRY FUSION -->
+      <section class="panel-card telemetry-fusion-panel" id="telemetry-panel">
+        <h3 class="panel-title" id="telemetry-title">📡 Real-Time IoT Sensor Fusion
+          <span class="tel-status-badge" id="tel-status-badge">
+            <span class="tel-status-dot"></span> Satellite Active
+          </span>
+        </h3>
+        <div class="tel-metrics-row">
+          <div class="tel-metric-card tel-confidence-card">
+            <div class="tel-metric-icon">🛰️</div>
+            <h4 class="tel-metric-label">Fusion Confidence</h4>
+            <div class="tel-metric-value" id="tel-confidence">--%</div>
+            <div class="tel-metric-bar-track"><div class="tel-metric-bar-fill confidence-fill" id="tel-confidence-bar"></div></div>
+          </div>
+          <div class="tel-metric-card tel-moisture-card">
+            <div class="tel-metric-icon">💧</div>
+            <h4 class="tel-metric-label">True Soil Moisture</h4>
+            <div class="tel-metric-value" id="tel-moisture">--%</div>
+            <div class="tel-metric-bar-track"><div class="tel-metric-bar-fill moisture-fill" id="tel-moisture-bar"></div></div>
+          </div>
+          <div class="tel-metric-card tel-irrigation-card">
+            <div class="tel-metric-icon">🌊</div>
+            <h4 class="tel-metric-label">Irrigation Recommendation</h4>
+            <div class="tel-metric-value tel-irrigation-value" id="tel-irrigation">Waiting for node sync...</div>
+          </div>
+          <div class="tel-metric-card tel-pest-card">
+            <div class="tel-metric-icon">🐛</div>
+            <h4 class="tel-metric-label">Pest Risk</h4>
+            <div class="tel-metric-value" id="tel-pest-risk">--</div>
+          </div>
+        </div>
+        <div class="tel-anomalies-banner" id="tel-anomalies">
+          <!-- Anomalies populated dynamically -->
+        </div>
+        <div class="tel-source-row">
+          <span class="tel-source">📡 Satellite: NASA POWER + Open-Meteo</span>
+          <span class="tel-source">🔌 Local: LoRa Node 1 (ESP32)</span>
+          <span class="tel-source">🧠 Engine: Kalman Filter Fusion</span>
+        </div>
+      </section>
 
       <!-- FORECAST -->
       <section class="panel-card" id="forecast-panel">
