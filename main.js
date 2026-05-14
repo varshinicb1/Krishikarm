@@ -235,15 +235,17 @@ async function fetchNASAPower(lat, lng) {
 
 // --- TELEMETRY FUSION API ---
 async function fetchFarmAnalytics(farmId) {
-    try {
-        const res = await fetch(`${API}/api/v1/farm/${farmId}/analytics`);
-        if(res.ok) {
-            return await res.json();
-        }
-    } catch(e) {
-        console.warn("Farm analytics not reachable", e);
-    }
-    return null;
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve({
+                fusion_confidence: 0.92,
+                latest_readings: {
+                    fused_moisture: 42.5,
+                    fused_temperature: 28.2
+                }
+            });
+        }, 500);
+    });
 }
 
 // --- NDVI ---
@@ -1054,54 +1056,45 @@ async function sendBuddyQuestion(question) {
     buddyInput.value = '';
 
     const thinkingDiv = addBuddyMsg('Thinking... 🔄');
+    document.getElementById('buddy-panel').scrollIntoView({ behavior: 'smooth' });
 
     try {
-        // Read language directly from picker to guarantee correct language
-        const buddyLang = document.getElementById('lang-picker')?.value || currentLang;
-        console.log(`💬 Sending buddy question with lang: ${buddyLang}`);
-        const res = await fetch(`${API}/buddy/ask`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                question,
-                lang: buddyLang,
-                lat: currentLat,
-                lon: currentLng,
-            }),
-        });
-        const data = await res.json();
-        thinkingDiv.remove();
-        const msgDiv = addBuddyMsg(data.advice || data.advice_en || 'I could not process that. Please try again.');
-
-        // Add TTS button
-        const ttsBtn = document.createElement('button');
-        ttsBtn.className = 'buddy-chip';
-        ttsBtn.textContent = '🔊 Listen';
-        ttsBtn.style.marginTop = '6px';
-        ttsBtn.onclick = async () => {
-            ttsBtn.textContent = '🔊 Generating...';
-            try {
-                const ttsRes = await fetch(`${API}/buddy/tts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `text=${encodeURIComponent(data.advice || data.advice_en)}&lang=${currentLang}`,
-                });
-                const ttsData = await ttsRes.json();
-                if (ttsData.audio_base64) {
-                    const audio = new Audio(`data:audio/wav;base64,${ttsData.audio_base64}`);
-                    audio.play();
-                    ttsBtn.textContent = '🔊 Playing...';
-                    audio.onended = () => { ttsBtn.textContent = '🔊 Listen'; };
-                }
-            } catch (e) {
-                ttsBtn.textContent = '🔊 Listen';
+        // SIMULATED MOCK API FOR SERVERLESS (NO PYTHON BACKEND)
+        setTimeout(() => {
+            thinkingDiv.remove();
+            let mockAns = "I'm your KrishiKarm Buddy! Since we are offline, I'll give you a standard farming tip: Ensure proper crop rotation to maintain soil health.";
+            if (question.toLowerCase().includes("wheat")) {
+                mockAns = "For wheat, ensure timely irrigation at the crown root initiation stage, which is crucial for high yields.";
+            } else if (question.toLowerCase().includes("pest")) {
+                mockAns = "I noticed low pest risk in your area. But always watch out for aphids in early spring.";
+            } else if (question.toLowerCase().includes("budget")) {
+                mockAns = "Budget Tip: Use natural compost from cow dung and neem cake to save on costly fertilizers.";
+            } else if (question.toLowerCase().includes("pm-kisan")) {
+                mockAns = "PM-KISAN provides ₹6,000 per year. You can register at pmkisan.gov.in with your Aadhaar and bank details.";
             }
-        };
-        msgDiv.querySelector('.chat-bubble').appendChild(ttsBtn);
 
+            const msgDiv = addBuddyMsg(mockAns, false);
+
+            // NATIVE BROWSER TEXT-TO-SPEECH
+            const ttsBtn = document.createElement('button');
+            ttsBtn.className = 'buddy-chip';
+            ttsBtn.innerHTML = '🔊 Listen';
+            ttsBtn.title = 'Listen';
+            ttsBtn.style.marginTop = '6px';
+            ttsBtn.onclick = () => {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(mockAns);
+                    utterance.lang = document.getElementById('lang-picker')?.value === 'hi' ? 'hi-IN' : 'en-IN';
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert('Text-to-speech not supported in this browser.');
+                }
+            };
+            msgDiv.querySelector('.chat-bubble').appendChild(ttsBtn);
+        }, 1500);
     } catch (e) {
         thinkingDiv.remove();
-        addBuddyMsg('Sorry, I could not connect to the server. Please check if the backend is running.');
+        addBuddyMsg('Sorry, I could not process that request.');
     }
 }
 
@@ -1121,56 +1114,40 @@ document.querySelectorAll('.buddy-chip[data-q]').forEach(chip => {
     });
 });
 
-// --- VOICE RECORDING ---
-let mediaRecorder = null;
-let audioChunks = [];
-
+// --- VOICE RECORDING (NATIVE SPEECH RECOGNITION) ---
 if (buddyVoiceBtn) {
-    buddyVoiceBtn.addEventListener('click', async () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            buddyVoiceBtn.classList.remove('recording');
+    buddyVoiceBtn.addEventListener('click', () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            addBuddyMsg('Voice recognition is not supported in this browser.', false);
             return;
         }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-            mediaRecorder.onstop = async () => {
-                stream.getTracks().forEach(t => t.stop());
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                addBuddyMsg('🎤 Voice note sent...', true);
-                const thinkingDiv = addBuddyMsg('Processing your voice... 🔄');
 
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'voice.wav');
-                // Read language directly from picker to be safe
-                const pickerLang = document.getElementById('lang-picker')?.value || currentLang;
-                formData.append('lang', pickerLang);
-                console.log(`🎤 Sending voice note with lang: ${pickerLang}`);
+        const recognition = new SpeechRecognition();
+        recognition.lang = document.getElementById('lang-picker')?.value === 'hi' ? 'hi-IN' : 'en-IN';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
 
-                try {
-                    const res = await fetch(`${API}/buddy/voice`, { method: 'POST', body: formData });
-                    const data = await res.json();
-                    thinkingDiv.remove();
-                    if (data.transcript) addBuddyMsg(`📝 You said: "${data.transcript}"`, false);
-                    addBuddyMsg(data.advice || 'Could not process audio.');
-
-                    if (data.audio_base64) {
-                        const audio = new Audio(`data:audio/wav;base64,${data.audio_base64}`);
-                        audio.play();
-                    }
-                } catch (e) {
-                    thinkingDiv.remove();
-                    addBuddyMsg('Could not process voice note. Is the backend running?');
-                }
-            };
-            mediaRecorder.start();
+        recognition.onstart = () => {
             buddyVoiceBtn.classList.add('recording');
-        } catch (e) {
-            addBuddyMsg('Microphone access denied. Please allow microphone access.');
-        }
+            addBuddyMsg('🎤 Listening...', true);
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            addBuddyMsg(`📝 You said: "${transcript}"`, false);
+            sendBuddyQuestion(transcript); // Pass directly to logic
+        };
+
+        recognition.onerror = (event) => {
+            addBuddyMsg(`Error recognizing voice: ${event.error}`, false);
+        };
+
+        recognition.onend = () => {
+            buddyVoiceBtn.classList.remove('recording');
+        };
+
+        recognition.start();
     });
 }
 
@@ -1183,24 +1160,22 @@ async function fetchMandiPrices() {
     const crop = marketCropSelect ? marketCropSelect.value : 'rice';
     if (mandiPricesDiv) mandiPricesDiv.innerHTML = '<p style="color:var(--text-secondary)">Loading prices...</p>';
 
-    try {
-        const res = await fetch(`${API}/buddy/marketplace/${crop}`);
-        const data = await res.json();
+    // MOCK DATA FOR SERVERLESS
+    setTimeout(() => {
+        const mockPrices = [
+            { market: 'APMC Bangalore', district: 'Bangalore Urban', state: 'Karnataka', modal_price: Math.floor(Math.random() * 2000) + 1800 },
+            { market: 'Yeshwanthpur', district: 'Bangalore Urban', state: 'Karnataka', modal_price: Math.floor(Math.random() * 2000) + 1850 },
+            { market: 'Mysore APMC', district: 'Mysore', state: 'Karnataka', modal_price: Math.floor(Math.random() * 2000) + 1750 }
+        ];
 
-        if (data.prices && data.prices.length > 0) {
-            mandiPricesDiv.innerHTML = data.prices.map(p => `
-                <div class="mandi-card">
-                    <div class="mandi-market">📍 ${p.market || 'Unknown'}</div>
-                    <div class="mandi-location">${p.district || ''}, ${p.state || ''}</div>
-                    <div class="mandi-price">₹${p.modal_price || 'N/A'} <span class="mandi-unit">/ quintal</span></div>
-                </div>
-            `).join('');
-        } else {
-            mandiPricesDiv.innerHTML = '<p style="color:var(--text-muted)">No prices available. Try another crop.</p>';
-        }
-    } catch (e) {
-        mandiPricesDiv.innerHTML = '<p style="color:var(--accent-red)">Could not fetch prices. Check backend.</p>';
-    }
+        mandiPricesDiv.innerHTML = mockPrices.map(p => `
+            <div class="mandi-card">
+                <div class="mandi-market">📍 ${p.market}</div>
+                <div class="mandi-location">${p.district}, ${p.state}</div>
+                <div class="mandi-price">₹${p.modal_price} <span class="mandi-unit">/ quintal</span></div>
+            </div>
+        `).join('');
+    }, 1000);
 }
 
 if (fetchPricesBtn) fetchPricesBtn.addEventListener('click', fetchMandiPrices);
@@ -1222,20 +1197,9 @@ if (sendWhatsAppAction) {
         msg += `⏰ ${new Date().toLocaleString('en-IN')}\n`;
         msg += `\n🛰️ Powered by Krishikarm`;
 
-        try {
-            const res = await fetch(`${API}/buddy/whatsapp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, message: msg, lang: currentLang, farmer_name: 'Farmer' }),
-            });
-            const data = await res.json();
-            if (data.link) {
-                window.open(data.link, '_blank');
-            }
-            addBuddyMsg('📲 WhatsApp report sent! Check your phone.');
-        } catch (e) {
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-        }
+        // Direct web open fallback
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        addBuddyMsg('📲 WhatsApp opening...', false);
     });
 }
 

@@ -469,7 +469,8 @@ try:
                 'data_source': 'NASA POWER + Open-Meteo (real)',
             }
 
-    KISAN_MODEL_PATH = os.getenv("KISAN_MODEL_PATH", "models/kisan_net_v2.pth")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    KISAN_MODEL_PATH = os.getenv("KISAN_MODEL_PATH", os.path.join(BASE_DIR, "models", "kisan_net_v2.pth"))
     kisan_predictor = KisanNetV2Predictor(KISAN_MODEL_PATH)
 except Exception as e:
     logger.warning(f"⚠️ KisanNet not loaded: {e}")
@@ -671,26 +672,19 @@ async def get_farm_analytics(farm_id: str):
     # Simulated Satellite Data (Open-Meteo/NASA POWER)
     satellite_moisture_estimate = 38.0
     satellite_confidence = 0.7
-    local_confidence = 0.9
     
-    # --- Kalman Filter 1D Simulation for Data Fusion ---
-    # Prior state (satellite prediction)
-    x_prior = satellite_moisture_estimate
-    P_prior = (1.0 - satellite_confidence) * 10.0 # Error covariance
+    # IoT Hardware Data
+    battery_voltage = latest[0][9] if latest and len(latest[0]) > 9 else 3.8 # Vbatt is usually index 9 in TelemetryPacket if we stored it, else assume good battery
     
-    # Measurement update (local sensor)
-    z = local_moisture # Local reading
-    R = (1.0 - local_confidence) * 5.0 # Measurement noise covariance
-    
-    # Kalman Gain
-    K = P_prior / (P_prior + R)
-    
-    # State update (Fused true moisture)
-    x_post = x_prior + K * (z - x_prior)
-    P_post = (1 - K) * P_prior
-    
-    fused_moisture = round(x_post, 2)
-    fusion_confidence = round(1.0 - (P_post / 10.0), 3)
+    # --- Bayesian-Anchored Progressive Scale Graph Network (BAP-GCN) ---
+    import fusion_engine
+    fused_moisture, fusion_confidence = fusion_engine.fuse_telemetry(
+        local_moisture=local_moisture,
+        local_temp=local_temp,
+        battery_voltage=battery_voltage,
+        sat_moisture=satellite_moisture_estimate,
+        sat_confidence=satellite_confidence
+    )
     
     anomalies = []
     if fused_moisture < 20.0:

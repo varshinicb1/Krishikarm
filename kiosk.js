@@ -88,40 +88,39 @@ window.captureAndIdentify = async function () {
     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
     capturedImageBlob = blob;
 
-    const formData = new FormData();
-    formData.append('image', blob, 'face.jpg');
+    // SIMULATED MOCK API FOR SERVERLESS
+    setTimeout(() => {
+        const mockData = {
+            status: 'identified',
+            farmer_id: 'FARMER_001',
+            token: 'mock_token',
+            confidence: 0.95,
+            farmer: {
+                name: 'Ramesh Kumar',
+                village: 'Navalur',
+                district: 'Dharwad',
+                state: 'Karnataka',
+                language: 'kn',
+                land_acres: 5,
+                crops: ['Cotton', 'Maize'],
+                irrigation_type: 'Rain-fed',
+                financial_state: 'Stable',
+                family_members: 6,
+                bpl_card: true
+            }
+        };
 
-    try {
-        const resp = await fetch(`${BACKEND_URL}/identify`, { method: 'POST', body: formData });
-        const data = await resp.json();
-
-        if (data.status === 'identified') {
-            currentFarmerId = data.farmer_id;
-            currentToken = data.token;
-            localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
-            localStorage.setItem('krishikarm_token', currentToken);
-            status.textContent = `✅ Welcome back, ${data.farmer.name}! (${(data.confidence * 100).toFixed(0)}% match)`;
-            status.style.color = '#22c55e';
-            showFarmerProfile(data.farmer);
-            loadSchemes(data.farmer_id);
-            loadFarmData(data.farmer_id);
-            addChatMessage('bot', `Namaste ${data.farmer.name}! 🙏 Welcome back. How can I help you today? Ask me about your farm, weather, schemes, or any question.`);
-        } else if (data.status === 'unknown') {
-            status.textContent = '❓ Face not recognized — Please register below';
-            status.style.color = '#f59e0b';
-            document.getElementById('kiosk-register-form').style.display = 'block';
-        } else if (data.status === 'no_face') {
-            status.textContent = '📷 No face detected — Please look directly at the camera';
-            status.style.color = '#ef4444';
-        } else {
-            status.textContent = data.message || 'Please try again';
-        }
-    } catch (e) {
-        // Backend might not be running yet — show demo mode
-        status.textContent = '⚠️ Backend not connected — Running in demo mode';
-        status.style.color = '#f59e0b';
-        showDemoMode();
-    }
+        currentFarmerId = mockData.farmer_id;
+        currentToken = mockData.token;
+        localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
+        localStorage.setItem('krishikarm_token', currentToken);
+        status.textContent = `✅ Welcome back, ${mockData.farmer.name}! (${(mockData.confidence * 100).toFixed(0)}% match)`;
+        status.style.color = '#22c55e';
+        showFarmerProfile(mockData.farmer);
+        loadSchemes(mockData.farmer_id);
+        loadFarmData(mockData.farmer_id);
+        addChatMessage('bot', `Namaste ${mockData.farmer.name}! 🙏 Welcome back. How can I help you today? Ask me about your farm, weather, schemes, or any question.`);
+    }, 1500);
 }
 
 // ===== FARMER PROFILE =====
@@ -147,21 +146,19 @@ function showFarmerProfile(farmer) {
 
 // ===== LOAD SCHEMES =====
 async function loadSchemes(farmerId) {
-    try {
-        const resp = await fetch(`${BACKEND_URL}/schemes/${farmerId}`, {
-            headers: {
-                'Authorization': `Bearer ${currentToken}`,
-                'X-Farmer-ID': currentFarmerId
-            }
-        });
-        const data = await resp.json();
+    // SIMULATED MOCK API
+    setTimeout(() => {
+        const mockSchemes = [
+            { name: 'PM-KISAN', benefit: '₹6000/year', reason: 'You own < 5 acres', helpline: '155261' },
+            { name: 'Fasal Bima Yojana', benefit: 'Crop Insurance', reason: 'Protects your Cotton', helpline: '14447' }
+        ];
 
         const container = document.getElementById('kiosk-schemes-list');
         const panel = document.getElementById('kiosk-schemes');
         panel.style.display = 'block';
 
         container.innerHTML = '';
-        data.schemes.forEach(s => {
+        mockSchemes.forEach(s => {
             const item = document.createElement('div');
             item.className = 'scheme-item';
             
@@ -191,22 +188,22 @@ async function loadSchemes(farmerId) {
             item.appendChild(meta);
             container.appendChild(item);
         });
-    } catch (e) {
-        console.warn('Schemes fetch failed:', e);
-    }
+    }, 1000);
 }
 
 // ===== LOAD FARM DATA =====
 async function loadFarmData(farmerId) {
-    try {
-        const resp = await fetch(`${BACKEND_URL}/farm-data/${farmerId}`, {
-            headers: {
-                'Authorization': `Bearer ${currentToken}`,
-                'X-Farmer-ID': currentFarmerId
-            }
-        });
-        const data = await resp.json();
-        const fd = data.farm_data;
+    // SIMULATED MOCK API
+    setTimeout(() => {
+        const fd = {
+            temperature: 28,
+            humidity: 65,
+            ndvi: 0.65,
+            ndvi_label: 'Healthy',
+            soil_moisture: 0.45,
+            rainfall_7d: 12,
+            irrigate_decision: 'NO - Soil is moist'
+        };
 
         const container = document.getElementById('kiosk-sat-data');
         const panel = document.getElementById('kiosk-farm-data');
@@ -238,9 +235,7 @@ async function loadFarmData(farmerId) {
             grid.appendChild(item);
         });
         container.appendChild(grid);
-    } catch (e) {
-        console.warn('Farm data fetch failed:', e);
-    }
+    }, 1000);
 }
 
 // ===== AI CHAT =====
@@ -259,43 +254,25 @@ window.kioskSendMessage = async function () {
 
     addChatMessage('bot', '⏳ Thinking...');
 
-    try {
-        const resp = await fetch(`${BACKEND_URL}/chat`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken}`,
-                'X-Farmer-ID': currentFarmerId
-            },
-            body: JSON.stringify({
-                farmer_id: currentFarmerId,
-                query: query,
-                language: 'hi',
-                mode: 'text'
-            })
-        });
-        const data = await resp.json();
-
+    setTimeout(() => {
         // Remove "thinking" message
         const messages = document.getElementById('kiosk-chat-messages');
         const last = messages.lastElementChild;
         if (last && last.textContent.includes('Thinking')) last.remove();
 
-        addChatMessage('bot', data.response);
+        let mockResponse = "Namaskara! This is the Krishikarm Kiosk Buddy. Since we are in offline mode, I recommend checking your crop calendar above for immediate actions.";
+        if (query.toLowerCase().includes("cotton")) mockResponse = "For cotton, ensure you spray Neem oil at early growth stages to prevent bollworm attacks.";
+        
+        addChatMessage('bot', mockResponse);
 
         // Auto-speak the response
         if ('speechSynthesis' in window) {
-            const u = new SpeechSynthesisUtterance(data.response);
+            const u = new SpeechSynthesisUtterance(mockResponse);
             u.lang = 'hi-IN';
             u.rate = 0.85;
             window.speechSynthesis.speak(u);
         }
-    } catch (e) {
-        const messages = document.getElementById('kiosk-chat-messages');
-        const last = messages.lastElementChild;
-        if (last && last.textContent.includes('Thinking')) last.remove();
-        addChatMessage('bot', 'Sorry, I could not connect to the AI backend. Please try again.');
-    }
+    }, 1200);
 }
 
 function addChatMessage(role, text) {
@@ -360,39 +337,37 @@ window.registerFarmer = async function () {
         return;
     }
 
-    const formData = new FormData();
-    formData.append('image', capturedImageBlob, 'face.jpg');
-    formData.append('data', JSON.stringify({
-        name: document.getElementById('reg-name').value,
-        village: document.getElementById('reg-village').value,
-        district: document.getElementById('reg-district').value,
-        state: document.getElementById('reg-state').value,
-        language: document.getElementById('reg-lang').value,
-        phone: document.getElementById('reg-phone').value,
-        land_acres: parseFloat(document.getElementById('reg-land').value) || 0,
-        crops: document.getElementById('reg-crops').value.split(',').map(c => c.trim()).filter(Boolean),
-        irrigation_type: document.getElementById('reg-irrigation').value,
-    }));
+    setTimeout(() => {
+        const mockData = {
+            status: 'registered',
+            farmer_id: 'NEW_FARMER_123',
+            token: 'mock_token_new',
+            farmer: {
+                name: document.getElementById('reg-name').value || 'New Farmer',
+                village: document.getElementById('reg-village').value || 'Unknown',
+                district: document.getElementById('reg-district').value || 'Unknown',
+                state: document.getElementById('reg-state').value || 'Unknown',
+                language: document.getElementById('reg-lang').value || 'hi',
+                land_acres: parseFloat(document.getElementById('reg-land').value) || 0,
+                crops: document.getElementById('reg-crops').value.split(',').map(c => c.trim()).filter(Boolean),
+                irrigation_type: document.getElementById('reg-irrigation').value || 'Rain-fed',
+                financial_state: 'Stable',
+                family_members: 4,
+                bpl_card: false
+            }
+        };
 
-    try {
-        const resp = await fetch(`${BACKEND_URL}/register`, { method: 'POST', body: formData });
-        const data = await resp.json();
-
-        if (data.status === 'registered') {
-            currentFarmerId = data.farmer_id;
-            currentToken = data.token;
-            localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
-            localStorage.setItem('krishikarm_token', currentToken);
-            document.getElementById('kiosk-register-form').style.display = 'none';
-            document.getElementById('kiosk-camera-status').textContent = `✅ Registered! Welcome, ${data.farmer.name}!`;
-            document.getElementById('kiosk-camera-status').style.color = '#22c55e';
-            showFarmerProfile(data.farmer);
-            loadSchemes(data.farmer_id);
-            addChatMessage('bot', `Welcome ${data.farmer.name}! 🎉 You are now registered. Ask me anything about farming, schemes, or weather.`);
-        }
-    } catch (e) {
-        alert('Registration failed. Please check if the backend is running.');
-    }
+        currentFarmerId = mockData.farmer_id;
+        currentToken = mockData.token;
+        localStorage.setItem('krishikarm_farmer_id', currentFarmerId);
+        localStorage.setItem('krishikarm_token', currentToken);
+        document.getElementById('kiosk-register-form').style.display = 'none';
+        document.getElementById('kiosk-camera-status').textContent = `✅ Registered! Welcome, ${mockData.farmer.name}!`;
+        document.getElementById('kiosk-camera-status').style.color = '#22c55e';
+        showFarmerProfile(mockData.farmer);
+        loadSchemes(mockData.farmer_id);
+        addChatMessage('bot', `Welcome ${mockData.farmer.name}! 🎉 You are now registered. Ask me anything about farming, schemes, or weather.`);
+    }, 1500);
 }
 
 // ===== DEMO MODE (when backend not available) =====
